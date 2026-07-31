@@ -1,0 +1,4 @@
+llm:
+  base-url: "https://api.siliconflow.cn/v1/chat/completions"
+  model: "tencent/Hunyuan-MT-7B"
+  api-key: "sk-yltwedyitdqugfuxxhqyhnsxlepjrethiiasufqrqmabxfcj"

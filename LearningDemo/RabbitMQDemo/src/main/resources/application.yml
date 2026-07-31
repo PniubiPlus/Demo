@@ -1,0 +1,43 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: rabbitmq-demo
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: admin
+    password: 123456
+    virtual-host: /
+    listener:
+      simple:
+        acknowledge-mode: auto
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1000
+
+app:
+  rabbitmq:
+    queue:
+      single: demo.single.queue
+      work: demo.work.queue
+      fanout: demo.fanout.queue
+      direct: demo.direct.queue
+      topic: demo.topic.queue
+      order: demo.order.queue
+      order.ttl: demo.order.ttl.queue
+      order.dlx: demo.order.dlx.queue
+    exchange:
+      fanout: demo.fanout.exchange
+      direct: demo.direct.exchange
+      topic: demo.topic.exchange
+      order.ttl: demo.order.ttl.exchange
+      order.dlx: demo.order.dlx.exchange
+    routing-key:
+      direct: demo.direct.key
+      topic:
+        java: demo.topic.java
+        spring: demo.topic.spring
+        all: demo.#

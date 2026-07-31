@@ -1,0 +1,208 @@
+{
+  "info": {
+    "_postman_id": "7d2f5f7c-1f84-4a2a-9d7d-6a8f7b7d9a11",
+    "name": "RabbitMQDemo",
+    "description": "RabbitMQDemo 测试接口集合，可直接导入 Apifox（Postman Collection 2.1 格式）",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "一对一 - 发送消息",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"hello single\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/rabbit/single",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "rabbit",
+            "single"
+          ]
+        },
+        "description": "一对一消息模型：发送一条消息给单个队列和消费者。"
+      },
+      "response": []
+    },
+    {
+      "name": "多消费者分摊任务 - 发送任务",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"job\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/rabbit/work",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "rabbit",
+            "work"
+          ]
+        },
+        "description": "两个消费者监听同一个队列，观察任务分摊效果。"
+      },
+      "response": []
+    },
+    {
+      "name": "Fanout - 广播消息",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"broadcast\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/rabbit/fanout",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "rabbit",
+            "fanout"
+          ]
+        },
+        "description": "Fanout 扇形交换机：不看 RoutingKey，所有绑定队列都会收到。"
+      },
+      "response": []
+    },
+    {
+      "name": "Direct - 精准匹配 RoutingKey",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"routingKey\": \"demo.direct.key\",\n  \"message\": \"direct msg\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/rabbit/direct",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "rabbit",
+            "direct"
+          ]
+        },
+        "description": "Direct 直连交换机：RoutingKey 必须精准匹配。"
+      },
+      "response": []
+    },
+    {
+      "name": "Topic - 通配符匹配",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"routingKey\": \"demo.topic.java\",\n  \"message\": \"topic msg\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/rabbit/topic",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "rabbit",
+            "topic"
+          ]
+        },
+        "description": "Topic 主题交换机：支持 * 和 # 通配符。"
+      },
+      "response": []
+    },
+    {
+      "name": "订单超时取消 - 创建订单",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"orderId\": \"1001\",\n  \"content\": \"apple\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/rabbit/order",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "rabbit",
+            "order"
+          ]
+        },
+        "description": "创建订单消息，进入 TTL 队列，15 秒后若未处理会进入死信队列。"
+      },
+      "response": []
+    },
+    {
+      "name": "订单超时取消 - 查询订单状态",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/rabbit/order/{{orderId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "rabbit",
+            "order",
+            "{{orderId}}"
+          ]
+        },
+        "description": "查询订单状态，默认 orderId=1001。"
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "orderId",
+      "value": "1001"
+    }
+  ]
+}
