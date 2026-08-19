@@ -22,8 +22,7 @@ public class RabbitDemoService {
 
     // 最基础的消息发送：把消息直接发到一对一队列
     public void sendSingle(String message) {
-//        rabbitTemplate.convertAndSend(properties.getQueue().get("single"), message);
-        rabbitTemplate.convertAndSend("exchangeName.exchage","routingkey" ,"message");
+        rabbitTemplate.convertAndSend(properties.getQueue().get("single"), message);
     }
 
     // 一次发送 10 条任务消息，用于观察多个消费者如何分摊
