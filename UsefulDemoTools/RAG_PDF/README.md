@@ -24,6 +24,12 @@ mvn exec:java -Dexec.args="9090"
 
 解析结果包含文件名、页数、字符数和提取出的全文。命令行直接解析文件的入口后续可继续补充。
 
+## 接口响应与 JSON 序列化
+
+上传解析接口 `POST /api/parse` 使用 Jackson（`jackson-databind`）序列化成功和失败响应，不再手动拼接 JSON 字符串。这样 PDFBox 提取文本中的换行符、制表符及其他 JSON 控制字符会被正确转义，前端可以稳定地通过 `response.json()` 读取结果。
+
+成功响应字段为 `fileName`、`pageCount`、`characterCount` 和 `text`；失败响应统一返回 JSON 对象，其中 `message` 字段描述失败原因。
+
 ## 代码结构
 
 - `PdfParser`：PDF 解析抽象接口。

@@ -1,5 +1,6 @@
 package com.example.ragpdf;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
@@ -17,6 +18,7 @@ import java.util.concurrent.Executors;
 public final class RagPdfApplication {
     private static final int DEFAULT_PORT = 8080;
     private static final long MAX_UPLOAD_SIZE = 50 * 1024 * 1024;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private RagPdfApplication() {
     }
@@ -47,14 +49,14 @@ public final class RagPdfApplication {
 
     private static void parseUploadedPdf(HttpExchange exchange) throws IOException {
         if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
-            sendText(exchange, 405, "只支持 POST 请求", "text/plain; charset=UTF-8");
+            sendJson(exchange, 405, new ErrorResponse("只支持 POST 请求"));
             return;
         }
 
         String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
         String boundary = extractBoundary(contentType);
         if (boundary == null) {
-            sendText(exchange, 400, "请求必须使用 multipart/form-data", "text/plain; charset=UTF-8");
+            sendJson(exchange, 400, new ErrorResponse("请求必须使用 multipart/form-data"));
             return;
         }
 
@@ -62,15 +64,12 @@ public final class RagPdfApplication {
         try {
             MultipartPdf multipartPdf = MultipartPdf.parse(exchange.getRequestBody(), boundary, upload);
             PdfDocument document = new PdfBoxParser().parse(upload);
-            String json = "{\"fileName\":" + jsonString(multipartPdf.fileName())
-                    + ",\"pageCount\":" + document.pageCount()
-                    + ",\"characterCount\":" + document.text().length()
-                    + ",\"text\":" + jsonString(document.text()) + "}";
-            sendText(exchange, 200, json, "application/json; charset=UTF-8");
+            sendJson(exchange, 200, new ParseResponse(
+                    multipartPdf.fileName(), document.pageCount(), document.text().length(), document.text()));
         } catch (IllegalArgumentException exception) {
-            sendText(exchange, 400, exception.getMessage(), "text/plain; charset=UTF-8");
+            sendJson(exchange, 400, new ErrorResponse(exception.getMessage()));
         } catch (IOException exception) {
-            sendText(exchange, 422, "PDF 解析失败: " + exception.getMessage(), "text/plain; charset=UTF-8");
+            sendJson(exchange, 422, new ErrorResponse("PDF 解析失败: " + exception.getMessage()));
         } finally {
             Files.deleteIfExists(upload);
         }
@@ -108,9 +107,14 @@ public final class RagPdfApplication {
         }
     }
 
-    private static String jsonString(String value) {
-        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"")
-                .replace("\r", "\\r").replace("\n", "\\n") + "\"";
+    private static void sendJson(HttpExchange exchange, int status, Object body) throws IOException {
+        sendText(exchange, status, OBJECT_MAPPER.writeValueAsString(body), "application/json; charset=UTF-8");
+    }
+
+    private record ParseResponse(String fileName, int pageCount, int characterCount, String text) {
+    }
+
+    private record ErrorResponse(String message) {
     }
 
     private record MultipartPdf(String fileName) {

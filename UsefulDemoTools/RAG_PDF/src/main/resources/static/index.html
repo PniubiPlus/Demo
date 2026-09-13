@@ -84,8 +84,8 @@
         const form = new FormData(); form.append('file', file);
         try {
             const response = await fetch('/api/parse', { method: 'POST', body: form });
-            if (!response.ok) throw new Error(await response.text());
             const data = await response.json();
+            if (!response.ok) throw new Error(data.message || '解析失败，请重试。');
             document.querySelector('#pageCount').textContent = data.pageCount;
             document.querySelector('#characterCount').textContent = data.characterCount;
             document.querySelector('#text').textContent = data.text || 'PDF 中没有提取到文字。';
