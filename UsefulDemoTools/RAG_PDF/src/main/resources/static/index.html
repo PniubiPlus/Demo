@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RAG PDF 解析器</title>
+    <style>
+        :root { font-family: Inter, "Microsoft YaHei", sans-serif; color: #172033; background: #f5f7fb; }
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 32px 16px; }
+        main { width: min(920px, 100%); }
+        .hero { margin-bottom: 22px; }
+        .eyebrow { color: #536dfe; font-size: 13px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+        h1 { margin: 8px 0; font-size: clamp(30px, 5vw, 48px); letter-spacing: -.04em; }
+        .subtitle { color: #6f7890; font-size: 16px; }
+        .card { background: white; border: 1px solid #e8ebf2; border-radius: 22px; box-shadow: 0 18px 50px #24345b12; padding: clamp(20px, 5vw, 42px); }
+        .dropzone { border: 1.5px dashed #bbc4d8; border-radius: 16px; padding: 42px 20px; text-align: center; cursor: pointer; transition: .2s; }
+        .dropzone:hover, .dropzone.active { border-color: #536dfe; background: #f5f7ff; }
+        .icon { font-size: 42px; line-height: 1; color: #536dfe; }
+        .dropzone h2 { margin: 16px 0 8px; font-size: 19px; }
+        .dropzone p { color: #7d869b; margin: 0; }
+        input[type=file] { display: none; }
+        button { border: 0; border-radius: 10px; background: #536dfe; color: white; padding: 12px 22px; font-size: 15px; font-weight: 700; cursor: pointer; }
+        button:disabled { background: #cbd1df; cursor: not-allowed; }
+        .action { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 20px; }
+        #fileName { color: #5d6880; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .status { min-height: 24px; margin-top: 18px; color: #d14d5d; }
+        .result { display: none; margin-top: 24px; }
+        .result.visible { display: block; }
+        .stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; }
+        .stat { background: #f2f4fa; border-radius: 10px; padding: 10px 14px; color: #59647d; }
+        .stat strong { color: #172033; margin-right: 5px; }
+        pre { margin: 0; max-height: 390px; overflow: auto; padding: 18px; border-radius: 12px; background: #172033; color: #dce4ff; white-space: pre-wrap; line-height: 1.65; }
+    </style>
+</head>
+<body>
+<main>
+    <section class="hero">
+        <div class="eyebrow">RAG · PDF INGESTION</div>
+        <h1>把 PDF 变成可用文本</h1>
+        <div class="subtitle">上传原生文字 PDF，先完成解析预览。知识库入库将在后续阶段接入。</div>
+    </section>
+    <section class="card">
+        <label class="dropzone" id="dropzone" for="fileInput">
+            <div class="icon">↑</div>
+            <h2>拖拽 PDF 到这里，或点击选择</h2>
+            <p>仅支持原生文字 PDF，单文件最大 50 MB</p>
+            <input id="fileInput" type="file" accept="application/pdf,.pdf">
+        </label>
+        <div class="action">
+            <span id="fileName">尚未选择文件</span>
+            <button id="parseButton" disabled>开始解析</button>
+        </div>
+        <div class="status" id="status"></div>
+        <div class="result" id="result">
+            <h2>解析结果</h2>
+            <div class="stats"><div class="stat"><strong id="pageCount">0</strong>页</div><div class="stat"><strong id="characterCount">0</strong>字符</div></div>
+            <pre id="text"></pre>
+        </div>
+    </section>
+</main>
+<script>
+    const input = document.querySelector('#fileInput');
+    const dropzone = document.querySelector('#dropzone');
+    const button = document.querySelector('#parseButton');
+    const fileName = document.querySelector('#fileName');
+    const status = document.querySelector('#status');
+    const result = document.querySelector('#result');
+    let file;
+    function selectFile(selected) {
+        file = selected;
+        const valid = file && file.name.toLowerCase().endsWith('.pdf');
+        button.disabled = !valid;
+        fileName.textContent = valid ? `${file.name}（${(file.size / 1024 / 1024).toFixed(2)} MB）` : '请选择 PDF 文件';
+        if (!valid) file = null;
+        status.textContent = '';
+    }
+    input.addEventListener('change', () => selectFile(input.files[0]));
+    ['dragenter', 'dragover'].forEach(event => dropzone.addEventListener(event, e => { e.preventDefault(); dropzone.classList.add('active'); }));
+    ['dragleave', 'drop'].forEach(event => dropzone.addEventListener(event, e => { e.preventDefault(); dropzone.classList.remove('active'); }));
+    dropzone.addEventListener('drop', e => selectFile(e.dataTransfer.files[0]));
+    button.addEventListener('click', async () => {
+        button.disabled = true; button.textContent = '解析中…'; status.textContent = ''; result.classList.remove('visible');
+        const form = new FormData(); form.append('file', file);
+        try {
+            const response = await fetch('/api/parse', { method: 'POST', body: form });
+            if (!response.ok) throw new Error(await response.text());
+            const data = await response.json();
+            document.querySelector('#pageCount').textContent = data.pageCount;
+            document.querySelector('#characterCount').textContent = data.characterCount;
+            document.querySelector('#text').textContent = data.text || 'PDF 中没有提取到文字。';
+            result.classList.add('visible');
+        } catch (error) { status.textContent = error.message || '解析失败，请重试。'; }
+        finally { button.disabled = !file; button.textContent = '开始解析'; }
+    });
+</script>
+</body>
+</html>
