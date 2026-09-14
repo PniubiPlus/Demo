@@ -8,17 +8,20 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Executors;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public final class RagPdfApplication {
     private static final int DEFAULT_PORT = 8080;
     private static final long MAX_UPLOAD_SIZE = 50 * 1024 * 1024;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final Logger LOGGER = Logger.getLogger(RagPdfApplication.class.getName());
 
     private RagPdfApplication() {
     }
@@ -48,6 +51,18 @@ public final class RagPdfApplication {
     }
 
     private static void parseUploadedPdf(HttpExchange exchange) throws IOException {
+        String requestId = UUID.randomUUID().toString();
+        try {
+            parseUploadedPdf(exchange, requestId);
+        } catch (Exception exception) {
+            LOGGER.log(Level.SEVERE, "请求处理失败, requestId=" + requestId, exception);
+            sendErrorIfPossible(exchange, 500, new ErrorResponse(
+                    "服务器处理失败", exception.getClass().getName(), exception.getMessage(), requestId));
+        }
+    }
+
+    private static void parseUploadedPdf(HttpExchange exchange, String requestId) throws IOException {
+        LOGGER.info(() -> "开始处理 PDF 上传, requestId=" + requestId);
         if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
             sendJson(exchange, 405, new ErrorResponse("只支持 POST 请求"));
             return;
@@ -63,15 +78,29 @@ public final class RagPdfApplication {
         Path upload = Files.createTempFile("rag-pdf-" + UUID.randomUUID(), ".pdf");
         try {
             MultipartPdf multipartPdf = MultipartPdf.parse(exchange.getRequestBody(), boundary, upload);
+            LOGGER.info(() -> "开始解析上传文件: " + multipartPdf.fileName());
             PdfDocument document = new PdfBoxParser().parse(upload);
             sendJson(exchange, 200, new ParseResponse(
-                    multipartPdf.fileName(), document.pageCount(), document.text().length(), document.text()));
+                    multipartPdf.fileName(), document.pageCount(), document.text().length(), document.text(),
+                    document.pages(), document.warnings()));
+            LOGGER.info(() -> "PDF 解析完成: " + multipartPdf.fileName());
         } catch (IllegalArgumentException exception) {
-            sendJson(exchange, 400, new ErrorResponse(exception.getMessage()));
+            logFailure(exchange, 400, "上传请求参数错误", exception);
         } catch (IOException exception) {
-            sendJson(exchange, 422, new ErrorResponse("PDF 解析失败: " + exception.getMessage()));
+            logFailure(exchange, 422, "PDF 解析 IO 错误", exception);
+        } catch (RuntimeException exception) {
+            logFailure(exchange, 500, "PDF 解析运行时错误", exception);
+        } catch (Throwable error) {
+            LOGGER.log(Level.SEVERE, "PDF 解析发生未捕获异常，requestId=" + requestId, error);
+            sendErrorIfPossible(exchange, 500, new ErrorResponse(
+                    "PDF 解析发生未捕获异常", error.getClass().getName(), safeMessage(error), requestId,
+                    stackTrace(error)));
         } finally {
-            Files.deleteIfExists(upload);
+            try {
+                Files.deleteIfExists(upload);
+            } catch (IOException cleanupException) {
+                LOGGER.log(Level.WARNING, "删除临时上传文件失败: " + upload, cleanupException);
+            }
         }
     }
 
@@ -107,14 +136,52 @@ public final class RagPdfApplication {
         }
     }
 
+    private static void logFailure(HttpExchange exchange, int status, String summary, Exception exception)
+            throws IOException {
+        String requestId = UUID.randomUUID().toString();
+        LOGGER.log(Level.SEVERE, summary + " [requestId=" + requestId + ", status=" + status + "]", exception);
+        sendJson(exchange, status, new ErrorResponse(
+                summary + ": " + safeMessage(exception), exception.getClass().getName(), exception.getMessage(), requestId));
+    }
+
+    private static String safeMessage(Throwable exception) {
+        String message = exception.getMessage();
+        return message == null || message.isBlank() ? "无附加错误信息" : message;
+    }
+
+    private static String stackTrace(Throwable error) {
+        StringBuilder trace = new StringBuilder();
+        for (StackTraceElement element : error.getStackTrace()) {
+            trace.append("at ").append(element).append('\n');
+        }
+        return trace.toString();
+    }
+
     private static void sendJson(HttpExchange exchange, int status, Object body) throws IOException {
         sendText(exchange, status, OBJECT_MAPPER.writeValueAsString(body), "application/json; charset=UTF-8");
     }
 
-    private record ParseResponse(String fileName, int pageCount, int characterCount, String text) {
+    private record ParseResponse(String fileName, int pageCount, int characterCount, String text,
+                                 List<PdfPage> pages, List<String> warnings) {
     }
 
-    private record ErrorResponse(String message) {
+    private static void sendErrorIfPossible(HttpExchange exchange, int status, ErrorResponse error) {
+        try {
+            sendJson(exchange, status, error);
+        } catch (IOException responseException) {
+            LOGGER.log(Level.SEVERE, "兜底错误响应发送失败", responseException);
+        }
+    }
+
+    private record ErrorResponse(String message, String exceptionType, String detail, String requestId,
+                                 String stackTrace) {
+        private ErrorResponse(String message) {
+            this(message, null, null, null, null);
+        }
+
+        private ErrorResponse(String message, String exceptionType, String detail, String requestId) {
+            this(message, exceptionType, detail, requestId, null);
+        }
     }
 
     private record MultipartPdf(String fileName) {

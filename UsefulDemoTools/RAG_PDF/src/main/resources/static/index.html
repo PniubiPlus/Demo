@@ -31,6 +31,11 @@
         .stat { background: #f2f4fa; border-radius: 10px; padding: 10px 14px; color: #59647d; }
         .stat strong { color: #172033; margin-right: 5px; }
         pre { margin: 0; max-height: 390px; overflow: auto; padding: 18px; border-radius: 12px; background: #172033; color: #dce4ff; white-space: pre-wrap; line-height: 1.65; }
+        .warning { display: none; padding: 12px 14px; border-radius: 10px; background: #fff7e5; color: #8b6417; }
+        .table-card { margin-top: 16px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 520px; }
+        th, td { border: 1px solid #e3e7f0; padding: 10px 12px; text-align: left; vertical-align: top; white-space: pre-wrap; }
+        th { background: #f2f4fa; }
     </style>
 </head>
 <body>
@@ -55,6 +60,10 @@
         <div class="result" id="result">
             <h2>解析结果</h2>
             <div class="stats"><div class="stat"><strong id="pageCount">0</strong>页</div><div class="stat"><strong id="characterCount">0</strong>字符</div></div>
+            <div class="warning" id="warning"></div>
+            <h3>结构化表格</h3>
+            <div id="tables"></div>
+            <h3>全文预览</h3>
             <pre id="text"></pre>
         </div>
     </section>
@@ -66,7 +75,36 @@
     const fileName = document.querySelector('#fileName');
     const status = document.querySelector('#status');
     const result = document.querySelector('#result');
+    const warning = document.querySelector('#warning');
+    const tables = document.querySelector('#tables');
     let file;
+
+    function renderTables(pages) {
+        tables.replaceChildren();
+        pages.flatMap(page => page.tables).forEach(tableData => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'table-card';
+            const title = document.createElement('h4');
+            title.textContent = `${tableData.title || '页面表格'}（第 ${tableData.pageStart} 页）`;
+            wrapper.append(title);
+            const table = document.createElement('table');
+            const head = document.createElement('thead');
+            tableData.headers.forEach(row => {
+                const tr = document.createElement('tr');
+                row.forEach(value => { const th = document.createElement('th'); th.textContent = value; tr.append(th); });
+                head.append(tr);
+            });
+            table.append(head);
+            const body = document.createElement('tbody');
+            tableData.rows.forEach(row => {
+                const tr = document.createElement('tr');
+                row.forEach(value => { const td = document.createElement('td'); td.textContent = value; tr.append(td); });
+                body.append(tr);
+            });
+            table.append(body); wrapper.append(table); tables.append(wrapper);
+        });
+        if (!tables.hasChildNodes()) tables.textContent = '未识别到符合当前规则的原生文字表格。';
+    }
     function selectFile(selected) {
         file = selected;
         const valid = file && file.name.toLowerCase().endsWith('.pdf');
@@ -84,13 +122,32 @@
         const form = new FormData(); form.append('file', file);
         try {
             const response = await fetch('/api/parse', { method: 'POST', body: form });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || '解析失败，请重试。');
+            const responseText = await response.text();
+            let data;
+            try {
+                data = responseText ? JSON.parse(responseText) : null;
+            } catch (parseError) {
+                throw new Error(`服务器返回了无效响应（HTTP ${response.status}）：${responseText.slice(0, 500)}`);
+            }
+            if (!response.ok) {
+                const detail = [data?.message, data?.exceptionType, data?.detail, data?.requestId]
+                    .filter(Boolean).join(' | ');
+                throw new Error(detail || `服务器返回 HTTP ${response.status}`);
+            }
             document.querySelector('#pageCount').textContent = data.pageCount;
             document.querySelector('#characterCount').textContent = data.characterCount;
             document.querySelector('#text').textContent = data.text || 'PDF 中没有提取到文字。';
+            renderTables(data.pages || []);
+            warning.textContent = (data.warnings || []).join(' ');
+            warning.style.display = data.warnings?.length ? 'block' : 'none';
             result.classList.add('visible');
-        } catch (error) { status.textContent = error.message || '解析失败，请重试。'; }
+        } catch (error) {
+            const message = error instanceof TypeError && error.message === 'Failed to fetch'
+                ? '无法连接到后端服务。请确认页面通过 http://localhost:8080 打开，并检查后端端口是否可访问。'
+                : (error.message || '解析失败，请重试。');
+            status.textContent = message;
+            console.error('PDF 解析请求失败', error);
+        }
         finally { button.disabled = !file; button.textContent = '开始解析'; }
     });
 </script>
