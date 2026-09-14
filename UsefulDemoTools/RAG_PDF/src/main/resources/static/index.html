@@ -14,16 +14,16 @@
         h1 { margin: 8px 0; font-size: clamp(30px, 5vw, 48px); letter-spacing: -.04em; }
         .subtitle { color: #6f7890; font-size: 16px; }
         .card { background: white; border: 1px solid #e8ebf2; border-radius: 22px; box-shadow: 0 18px 50px #24345b12; padding: clamp(20px, 5vw, 42px); }
-        .dropzone { border: 1.5px dashed #bbc4d8; border-radius: 16px; padding: 42px 20px; text-align: center; cursor: pointer; transition: .2s; }
+        .dropzone { width: min(620px, 100%); height: 160px; margin: 0 auto; border: 1.5px dashed #bbc4d8; border-radius: 16px; padding: 22px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; cursor: pointer; transition: .2s; }
         .dropzone:hover, .dropzone.active { border-color: #536dfe; background: #f5f7ff; }
-        .icon { font-size: 42px; line-height: 1; color: #536dfe; }
-        .dropzone h2 { margin: 16px 0 8px; font-size: 19px; }
+        .icon { font-size: 38px; line-height: 1; color: #536dfe; }
+        .dropzone h2 { margin: 10px 0 6px; font-size: 19px; }
         .dropzone p { color: #7d869b; margin: 0; }
         input[type=file] { display: none; }
         button { border: 0; border-radius: 10px; background: #536dfe; color: white; padding: 12px 22px; font-size: 15px; font-weight: 700; cursor: pointer; }
         button:disabled { background: #cbd1df; cursor: not-allowed; }
-        .action { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 20px; }
-        #fileName { color: #5d6880; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .action { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 10px; }
+        #fileName { flex: 1; min-width: 0; color: #5d6880; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .status { min-height: 24px; margin-top: 18px; color: #d14d5d; }
         .result { display: none; margin-top: 24px; }
         .result.visible { display: block; }
@@ -36,6 +36,7 @@
         table { width: 100%; border-collapse: collapse; min-width: 520px; }
         th, td { border: 1px solid #e3e7f0; padding: 10px 12px; text-align: left; vertical-align: top; white-space: pre-wrap; }
         th { background: #f2f4fa; }
+        @media (max-width: 560px) { .dropzone { height: 150px; } .action { align-items: stretch; flex-direction: column; } button { width: 100%; } }
     </style>
 </head>
 <body>
